@@ -68,7 +68,7 @@ func (s *Scene) Run() {
 		s.render()
 		fmt.Print("\033[H")
 		s.display()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(120 * time.Millisecond)
 	}
 }
 
