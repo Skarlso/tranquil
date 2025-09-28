@@ -32,6 +32,7 @@ type Scene struct {
 	treeOffset   int
 	starOffset   int
 	moonOffset   int
+	roadOffset   int
 	trees        []Tree
 	bushes       []Bush
 	stars        []Star
@@ -108,8 +109,8 @@ func NewScene(useColor bool, sleepDuration int) *Scene {
 		useColor:      useColor,
 		sleepDuration: sleepDuration,
 		ninja: Ninja{
-			x:          30,
-			y:          height - 8,
+			x:          25,
+			y:          height - 6, // On the road level
 			velocityX:  0.5,
 			velocityY:  0,
 			onGround:   true,
@@ -149,6 +150,10 @@ func (s *Scene) update() {
 	// Keep offsets cycling smoothly without visible resets
 	s.treeOffset = s.treeOffset % (width * 8)
 
+	// Road moves at same speed as trees
+	s.roadOffset++
+	s.roadOffset = s.roadOffset % 8 // Pattern repeats every 8 characters
+
 	if s.frameCounter%3 == 0 {
 		s.starOffset++
 		s.starOffset = s.starOffset % (width * 12)
@@ -176,6 +181,7 @@ func (s *Scene) render() {
 
 	s.renderMoon()
 	s.renderNightSky()
+	s.renderRoad()
 	s.renderTrees()
 	s.renderBushes()
 	s.renderCarWindow()
@@ -223,6 +229,25 @@ func (s *Scene) renderNightSky() {
 		}
 		if star.y < height-8 && starX < width-10 && starX > 5 {
 			s.buffer[star.y][starX] = star.char
+		}
+	}
+}
+
+func (s *Scene) renderRoad() {
+	// Render road at ground level
+	roadY := height - 5
+	roadPattern := "==--==  " // 8-character repeating pattern with ASCII chars
+
+	// Only render within window bounds
+	windowLeft := 5
+	windowRight := width - 5
+
+	for x := windowLeft; x < windowRight; x++ {
+		patternIndex := (x + s.roadOffset) % len(roadPattern)
+		roadChar := rune(roadPattern[patternIndex])
+
+		if roadY >= 0 && roadY < height && x >= 0 && x < width {
+			s.buffer[roadY][x] = roadChar
 		}
 	}
 }
@@ -333,9 +358,13 @@ func (s *Scene) getColoredChar(char rune) string {
 		return colorMagenta + string(char) + colorReset
 	case '║', '═', '╔', '╗', '╚', '╝': // Window frame
 		return colorCyan + string(char) + colorReset
-	case '▓': // Dashboard
+	case '▓': // Dashboard and road pavement
 		return colorBlue + string(char) + colorReset
 	case '█': // Car interior
+		return colorBlue + string(char) + colorReset
+	case '-': // Road lane markings
+		return colorWhite + string(char) + colorReset
+	case '=': // Road pavement
 		return colorBlue + string(char) + colorReset
 	case '@': // Moon and oak trees
 		return colorBrightYellow + string(char) + colorReset
@@ -452,7 +481,7 @@ func generateStars(count int) []Star {
 
 func (s *Scene) updateNinja() {
 	gravity := 0.3
-	groundLevel := float64(height - 6)
+	groundLevel := float64(height - 6) // Just above the road level
 
 	s.ninja.animFrame++
 
@@ -471,8 +500,8 @@ func (s *Scene) updateNinja() {
 		s.ninja.y += int(s.ninja.velocityY)
 
 		// Land when reaching ground level
-		if float64(s.ninja.y) >= groundLevel-2 {
-			s.ninja.y = int(groundLevel) - 2
+		if float64(s.ninja.y) >= groundLevel {
+			s.ninja.y = int(groundLevel)
 			s.ninja.state = Landing
 			s.ninja.onGround = true
 			s.ninja.velocityY = 0
