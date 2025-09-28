@@ -19,6 +19,7 @@ type Scene struct {
 	trees        []Tree
 	bushes       []Bush
 	stars        []Star
+	ninja        Ninja
 	frameCounter int
 }
 
@@ -39,6 +40,26 @@ type Bush struct {
 	shape  []string
 }
 
+type Ninja struct {
+	x          int
+	y          int
+	velocityX  float64
+	velocityY  float64
+	onGround   bool
+	state      NinjaState
+	animFrame  int
+	targetTree int
+}
+
+type NinjaState int
+
+const (
+	Running NinjaState = iota
+	Jumping
+	Landing
+	Crouching
+)
+
 func main() {
 	scene := NewScene()
 	scene.Run()
@@ -50,6 +71,16 @@ func NewScene() *Scene {
 		trees:  generateStaticTrees(),
 		bushes: generateStaticBushes(),
 		stars:  generateStars(20),
+		ninja: Ninja{
+			x:          30,
+			y:          height - 8,
+			velocityX:  0.5,
+			velocityY:  0,
+			onGround:   true,
+			state:      Running,
+			animFrame:  0,
+			targetTree: 0,
+		},
 	}
 
 	for i := range scene.buffer {
@@ -93,6 +124,8 @@ func (s *Scene) update() {
 	if s.frameCounter%300 == 0 {
 		s.stars = generateStars(20)
 	}
+
+	s.updateNinja()
 }
 
 func (s *Scene) render() {
@@ -106,6 +139,7 @@ func (s *Scene) render() {
 	s.renderTrees()
 	s.renderBushes()
 	s.renderCarWindow()
+	s.renderNinja()
 }
 
 func (s *Scene) renderNightSky() {
@@ -204,13 +238,16 @@ func (s *Scene) display() {
 
 func generateStaticTrees() []Tree {
 	trees := make([]Tree, 0)
-	treeSpacing := 35
 	groundLevel := height - 6
 
+	x := 50 // Start position
 	for i := 0; i < 20; i++ {
-		x := i * treeSpacing
 		tree := generateTree(x, groundLevel, i)
 		trees = append(trees, tree)
+
+		// Variable spacing between trees
+		spacing := 25 + rand.Intn(20) // 25-45 units apart
+		x += spacing
 	}
 	return trees
 }
@@ -303,6 +340,101 @@ func generateStars(count int) []Star {
 		}
 	}
 	return stars
+}
+
+func (s *Scene) updateNinja() {
+	gravity := 0.3
+	groundLevel := float64(height - 6)
+
+	s.ninja.animFrame++
+
+	switch s.ninja.state {
+	case Running:
+		// Ninja stays in fixed position - only check for trees when they're very close
+		nearbyTree := s.findNearbyTree()
+		if nearbyTree != nil {
+			s.ninja.state = Jumping
+			s.ninja.velocityY = -3.2  // Moderate jump height
+			s.ninja.onGround = false
+		}
+
+	case Jumping:
+		s.ninja.velocityY += gravity
+		s.ninja.y += int(s.ninja.velocityY)
+
+		// Land when reaching ground level
+		if float64(s.ninja.y) >= groundLevel-2 {
+			s.ninja.y = int(groundLevel) - 2
+			s.ninja.state = Landing
+			s.ninja.onGround = true
+			s.ninja.velocityY = 0
+		}
+
+	case Landing:
+		if s.ninja.animFrame%4 == 0 {
+			s.ninja.state = Running
+		}
+	}
+
+	// Keep ninja completely stationary horizontally
+	s.ninja.x = 25
+}
+
+func (s *Scene) findNextTree() *Tree {
+	for _, tree := range s.trees {
+		treeX := tree.x - s.treeOffset
+		if treeX > s.ninja.x {
+			return &tree
+		}
+	}
+	return nil
+}
+
+func (s *Scene) findNearbyTree() *Tree {
+	for _, tree := range s.trees {
+		treeX := tree.x - s.treeOffset
+		// Only jump when tree is very close - right before collision
+		if treeX > s.ninja.x+2 && treeX < s.ninja.x+8 && treeX > 10 && treeX < width-10 {
+			return &tree
+		}
+	}
+	return nil
+}
+
+func (s *Scene) renderNinja() {
+	// Only render ninja within the car window bounds
+	windowLeft := 6
+	windowRight := width - 7
+	windowTop := 4
+	windowBottom := height - 5
+
+	if s.ninja.x < windowLeft || s.ninja.x > windowRight || s.ninja.y < windowTop || s.ninja.y > windowBottom {
+		return
+	}
+
+	// Only render on empty space - never overwrite anything
+	if s.buffer[s.ninja.y][s.ninja.x] != ' ' {
+		return
+	}
+
+	var sprite rune
+	switch s.ninja.state {
+	case Running:
+		if (s.ninja.animFrame/8)%2 == 0 {
+			sprite = 'R'
+		} else {
+			sprite = 'r'
+		}
+	case Jumping:
+		sprite = 'J'
+	case Landing:
+		sprite = 'L'
+	default:
+		sprite = 'R'
+	}
+
+	// Simply replace the empty space with ninja sprite
+	s.buffer[s.ninja.y][s.ninja.x] = sprite
 }
 
 func generateTree(x, groundY, seed int) Tree {
