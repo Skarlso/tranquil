@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -37,6 +38,7 @@ type Scene struct {
 	ninja        Ninja
 	frameCounter int
 	useColor     bool
+	sleepDuration int
 }
 
 type Star struct {
@@ -78,24 +80,33 @@ const (
 
 func main() {
 	useColor := false
-	for _, arg := range os.Args[1:] {
+	sleepDuration := 120 // Default 120ms
+
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		if arg == "--color" {
 			useColor = true
-			break
+		} else if arg == "--speed" && i+1 < len(args) {
+			if speed, err := strconv.Atoi(args[i+1]); err == nil && speed > 0 {
+				sleepDuration = speed
+			}
+			i++ // Skip the speed value
 		}
 	}
 
-	scene := NewScene(useColor)
+	scene := NewScene(useColor, sleepDuration)
 	scene.Run()
 }
 
-func NewScene(useColor bool) *Scene {
+func NewScene(useColor bool, sleepDuration int) *Scene {
 	scene := &Scene{
-		buffer:   make([][]rune, height),
-		trees:    generateStaticTrees(),
-		bushes:   generateStaticBushes(),
-		stars:    generateStars(20),
-		useColor: useColor,
+		buffer:        make([][]rune, height),
+		trees:         generateStaticTrees(),
+		bushes:        generateStaticBushes(),
+		stars:         generateStars(20),
+		useColor:      useColor,
+		sleepDuration: sleepDuration,
 		ninja: Ninja{
 			x:          30,
 			y:          height - 8,
@@ -124,7 +135,7 @@ func (s *Scene) Run() {
 		s.render()
 		fmt.Print("\033[H")
 		s.display()
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(time.Duration(s.sleepDuration) * time.Millisecond)
 	}
 }
 
