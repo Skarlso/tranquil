@@ -30,6 +30,7 @@ type Scene struct {
 	buffer       [][]rune
 	treeOffset   int
 	starOffset   int
+	moonOffset   int
 	trees        []Tree
 	bushes       []Bush
 	stars        []Star
@@ -142,6 +143,12 @@ func (s *Scene) update() {
 		s.starOffset = s.starOffset % (width * 12)
 	}
 
+	// Moon moves even slower than stars for maximum depth
+	if s.frameCounter%10 == 0 {
+		s.moonOffset++
+		s.moonOffset = s.moonOffset % (width * 20)
+	}
+
 	if s.frameCounter%300 == 0 {
 		s.stars = generateStars(20)
 	}
@@ -156,11 +163,45 @@ func (s *Scene) render() {
 		}
 	}
 
+	s.renderMoon()
 	s.renderNightSky()
 	s.renderTrees()
 	s.renderBushes()
 	s.renderCarWindow()
 	s.renderNinja()
+}
+
+func (s *Scene) renderMoon() {
+	// Moon positioned higher in the sky
+	moonX := 60 - s.moonOffset/5 // Very slow movement
+	moonY := 4
+
+	// Keep moon within window bounds
+	if moonX < 8 {
+		moonX += width - 16
+	}
+	if moonX > width-8 {
+		return
+	}
+
+	// Smaller moon ASCII art
+	moonShape := []string{
+		"@@@",
+		"@@@",
+	}
+
+	// Render moon
+	for i, line := range moonShape {
+		y := moonY + i
+		if y >= 4 && y < height-10 {
+			for j, char := range line {
+				x := moonX + j
+				if x >= 6 && x < width-6 && char != ' ' {
+					s.buffer[y][x] = '@'
+				}
+			}
+		}
+	}
 }
 
 func (s *Scene) renderNightSky() {
@@ -267,8 +308,6 @@ func (s *Scene) getColoredChar(char rune) string {
 	switch char {
 	case '^': // Pine trees
 		return colorGreen + string(char) + colorReset
-	case '@': // Oak trees
-		return colorBrightGreen + string(char) + colorReset
 	case '#': // Birch trees
 		return colorWhite + string(char) + colorReset
 	case '&': // Maple trees
@@ -287,6 +326,8 @@ func (s *Scene) getColoredChar(char rune) string {
 		return colorBlue + string(char) + colorReset
 	case '█': // Car interior
 		return colorBlue + string(char) + colorReset
+	case '@': // Moon and oak trees
+		return colorBrightYellow + string(char) + colorReset
 	default:
 		return string(char)
 	}
