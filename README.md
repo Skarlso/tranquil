@@ -1,3 +1,3 @@
 # tranquil
 
-![jumper](./jumper-record.mov)
+![jumper](./jumper-record.gif)
