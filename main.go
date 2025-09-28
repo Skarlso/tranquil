@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 )
@@ -10,6 +11,19 @@ import (
 const (
 	width  = 80
 	height = 24
+
+	// ANSI color codes
+	colorReset   = "\033[0m"
+	colorRed     = "\033[31m"
+	colorGreen   = "\033[32m"
+	colorYellow  = "\033[33m"
+	colorBlue    = "\033[34m"
+	colorMagenta = "\033[35m"
+	colorCyan    = "\033[36m"
+	colorWhite   = "\033[37m"
+	colorBrightGreen = "\033[92m"
+	colorBrightBlue  = "\033[94m"
+	colorBrightYellow = "\033[93m"
 )
 
 type Scene struct {
@@ -21,6 +35,7 @@ type Scene struct {
 	stars        []Star
 	ninja        Ninja
 	frameCounter int
+	useColor     bool
 }
 
 type Star struct {
@@ -61,16 +76,25 @@ const (
 )
 
 func main() {
-	scene := NewScene()
+	useColor := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--color" {
+			useColor = true
+			break
+		}
+	}
+
+	scene := NewScene(useColor)
 	scene.Run()
 }
 
-func NewScene() *Scene {
+func NewScene(useColor bool) *Scene {
 	scene := &Scene{
-		buffer: make([][]rune, height),
-		trees:  generateStaticTrees(),
-		bushes: generateStaticBushes(),
-		stars:  generateStars(20),
+		buffer:   make([][]rune, height),
+		trees:    generateStaticTrees(),
+		bushes:   generateStaticBushes(),
+		stars:    generateStars(20),
+		useColor: useColor,
 		ninja: Ninja{
 			x:          30,
 			y:          height - 8,
@@ -110,15 +134,12 @@ func (s *Scene) clearScreen() {
 func (s *Scene) update() {
 	s.frameCounter++
 	s.treeOffset++
-	if s.treeOffset > width*4 {
-		s.treeOffset = 0
-	}
+	// Keep offsets cycling smoothly without visible resets
+	s.treeOffset = s.treeOffset % (width * 8)
 
 	if s.frameCounter%3 == 0 {
 		s.starOffset++
-		if s.starOffset > width*6 {
-			s.starOffset = 0
-		}
+		s.starOffset = s.starOffset % (width * 12)
 	}
 
 	if s.frameCounter%300 == 0 {
@@ -223,17 +244,52 @@ func (s *Scene) renderCarWindow() {
 
 func (s *Scene) display() {
 	var sb strings.Builder
-	sb.Grow(width * height * 4)
+	sb.Grow(width * height * 8) // More space for color codes
 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			sb.WriteRune(s.buffer[y][x])
+			char := s.buffer[y][x]
+			if s.useColor {
+				coloredChar := s.getColoredChar(char)
+				sb.WriteString(coloredChar)
+			} else {
+				sb.WriteRune(char)
+			}
 		}
 		if y < height-1 {
 			sb.WriteRune('\n')
 		}
 	}
 	fmt.Print(sb.String())
+}
+
+func (s *Scene) getColoredChar(char rune) string {
+	switch char {
+	case '^': // Pine trees
+		return colorGreen + string(char) + colorReset
+	case '@': // Oak trees
+		return colorBrightGreen + string(char) + colorReset
+	case '#': // Birch trees
+		return colorWhite + string(char) + colorReset
+	case '&': // Maple trees
+		return colorYellow + string(char) + colorReset
+	case '|': // Tree trunks
+		return colorGreen + string(char) + colorReset
+	case '*', '~', 'o': // Bushes
+		return colorGreen + string(char) + colorReset
+	case '·', '✦', '◦': // Stars
+		return colorBrightYellow + string(char) + colorReset
+	case 'R', 'r', 'J', 'L': // Ninja
+		return colorMagenta + string(char) + colorReset
+	case '║', '═', '╔', '╗', '╚', '╝': // Window frame
+		return colorCyan + string(char) + colorReset
+	case '▓': // Dashboard
+		return colorBlue + string(char) + colorReset
+	case '█': // Car interior
+		return colorBlue + string(char) + colorReset
+	default:
+		return string(char)
+	}
 }
 
 func generateStaticTrees() []Tree {
