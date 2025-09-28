@@ -17,6 +17,7 @@ type Scene struct {
 	treeOffset   int
 	starOffset   int
 	trees        []Tree
+	bushes       []Bush
 	stars        []Star
 	frameCounter int
 }
@@ -32,6 +33,12 @@ type Tree struct {
 	shape  []string
 }
 
+type Bush struct {
+	x      int
+	height int
+	shape  []string
+}
+
 func main() {
 	scene := NewScene()
 	scene.Run()
@@ -41,6 +48,7 @@ func NewScene() *Scene {
 	scene := &Scene{
 		buffer: make([][]rune, height),
 		trees:  generateStaticTrees(),
+		bushes: generateStaticBushes(),
 		stars:  generateStars(20),
 	}
 
@@ -96,6 +104,7 @@ func (s *Scene) render() {
 
 	s.renderNightSky()
 	s.renderTrees()
+	s.renderBushes()
 	s.renderCarWindow()
 }
 
@@ -206,6 +215,82 @@ func generateStaticTrees() []Tree {
 	return trees
 }
 
+func generateStaticBushes() []Bush {
+	bushes := make([]Bush, 0)
+	groundLevel := height - 6
+
+	for i := 0; i < 30; i++ {
+		x := rand.Intn(700) + 10
+		if rand.Intn(100) < 25 {
+			bush := generateBush(x, groundLevel, i)
+			bushes = append(bushes, bush)
+		}
+	}
+	return bushes
+}
+
+func (s *Scene) renderBushes() {
+	for _, bush := range s.bushes {
+		bushX := bush.x - s.treeOffset
+		if bushX >= -10 && bushX < width+10 {
+			adjustedBush := Bush{
+				x:      bushX,
+				height: bush.height,
+				shape:  bush.shape,
+			}
+			s.drawBush(adjustedBush)
+		}
+	}
+}
+
+func (s *Scene) drawBush(bush Bush) {
+	for i, line := range bush.shape {
+		y := bush.height - len(bush.shape) + i + 1
+		if y >= 0 && y < height-3 {
+			for j, char := range line {
+				x := bush.x + j
+				if x >= 5 && x < width-5 && char != ' ' {
+					s.buffer[y][x] = char
+				}
+			}
+		}
+	}
+}
+
+func generateBush(x, groundY, seed int) Bush {
+	rand.Seed(int64(seed * 23 + x*7))
+
+	bushType := rand.Intn(3)
+	var shape []string
+
+	switch bushType {
+	case 0:
+		shape = []string{
+			" *** ",
+			"*****",
+			" *** ",
+		}
+	case 1:
+		shape = []string{
+			"  ~~~  ",
+			" ~~~~~ ",
+			"~~~~~~~",
+			" ~~~~~ ",
+		}
+	default:
+		shape = []string{
+			" ooo ",
+			"ooooo",
+		}
+	}
+
+	return Bush{
+		x:      x,
+		height: groundY,
+		shape:  shape,
+	}
+}
+
 func generateStars(count int) []Star {
 	stars := make([]Star, count)
 	starChars := []rune{'*', '·', '✦', '◦'}
@@ -223,114 +308,121 @@ func generateStars(count int) []Star {
 func generateTree(x, groundY, seed int) Tree {
 	rand.Seed(int64(seed * 17 + x*3))
 
-	treeType := rand.Intn(5)
-	treeHeight := rand.Intn(4) + 4
+	treeType := rand.Intn(4)
+	treeHeight := rand.Intn(3) + 5
 
 	var shape []string
 
 	switch treeType {
-	case 0:
+	case 0: // Pine tree
 		if treeHeight <= 5 {
 			shape = []string{
-				"  ▲  ",
-				" ▲▲▲ ",
-				"▲▲▲▲▲",
-				"  ║  ",
+				"   ^   ",
+				"  ^^^  ",
+				" ^^^^^ ",
+				"^^^^^^^",
+				"   |   ",
+				"   |   ",
 			}
 		} else if treeHeight <= 6 {
 			shape = []string{
-				"   ▲   ",
-				"  ▲▲▲  ",
-				" ▲▲▲▲▲ ",
-				"▲▲▲▲▲▲▲",
-				"   ║   ",
-				"   ║   ",
+				"    ^    ",
+				"   ^^^   ",
+				"  ^^^^^  ",
+				" ^^^^^^^ ",
+				"^^^^^^^^^",
+				"    |    ",
+				"    |    ",
 			}
 		} else {
 			shape = []string{
-				"    ▲    ",
-				"   ▲▲▲   ",
-				"  ▲▲▲▲▲  ",
-				" ▲▲▲▲▲▲▲ ",
-				"▲▲▲▲▲▲▲▲▲",
-				"    ║    ",
-				"    ║    ",
+				"     ^     ",
+				"    ^^^    ",
+				"   ^^^^^   ",
+				"  ^^^^^^^  ",
+				" ^^^^^^^^^ ",
+				"^^^^^^^^^^^",
+				"     |     ",
+				"     |     ",
 			}
 		}
-	case 1:
+	case 1: // Oak tree
 		if treeHeight <= 5 {
 			shape = []string{
-				" ♠♠♠ ",
-				"♠♠♠♠♠",
-				" ♠♠♠ ",
-				"  ║  ",
+				"  @@@  ",
+				" @@@@@ ",
+				"@@@@@@@",
+				" @@@@@ ",
+				"   |   ",
+				"   |   ",
+			}
+		} else if treeHeight <= 6 {
+			shape = []string{
+				"   @@@   ",
+				"  @@@@@  ",
+				" @@@@@@@ ",
+				"@@@@@@@@@",
+				" @@@@@@@ ",
+				"  @@@@@  ",
+				"    |    ",
+				"    |    ",
 			}
 		} else {
 			shape = []string{
-				"   ♠♠♠   ",
-				"  ♠♠♠♠♠  ",
-				" ♠♠♠♠♠♠♠ ",
-				"♠♠♠♠♠♠♠♠♠",
-				"   ♠♠♠   ",
-				"    ║    ",
-				"    ║    ",
+				"    @@@    ",
+				"   @@@@@   ",
+				"  @@@@@@@  ",
+				" @@@@@@@@@ ",
+				"@@@@@@@@@@@",
+				" @@@@@@@@@ ",
+				"  @@@@@@@  ",
+				"     |     ",
+				"     |     ",
 			}
 		}
-	case 2:
+	case 2: // Birch tree
 		if treeHeight <= 5 {
 			shape = []string{
-				" ◆◆◆ ",
-				"◆◆◆◆◆",
-				" ◆◆◆ ",
-				"  ║  ",
+				"  ###  ",
+				" ##### ",
+				"#######",
+				"   |   ",
+				"   |   ",
+				"   |   ",
 			}
 		} else {
 			shape = []string{
-				"  ◆◆◆◆◆  ",
-				" ◆◆◆◆◆◆◆ ",
-				"◆◆◆◆◆◆◆◆◆",
-				" ◆◆◆◆◆◆◆ ",
-				"  ◆◆◆◆◆  ",
-				"    ║    ",
-				"    ║    ",
+				"   ###   ",
+				"  #####  ",
+				" ####### ",
+				"#########",
+				"    |    ",
+				"    |    ",
+				"    |    ",
 			}
 		}
-	case 3:
+	default: // Maple tree
 		if treeHeight <= 5 {
 			shape = []string{
-				" ▼▼▼ ",
-				"▼▼▼▼▼",
-				"▼▼▼▼▼",
-				"  ║  ",
+				"  &&&  ",
+				" &&&&& ",
+				"&&&&&&&",
+				" &&&&& ",
+				"  &&&  ",
+				"   |   ",
+				"   |   ",
 			}
 		} else {
 			shape = []string{
-				"  ▼▼▼▼▼  ",
-				" ▼▼▼▼▼▼▼ ",
-				"▼▼▼▼▼▼▼▼▼",
-				"▼▼▼▼▼▼▼▼▼",
-				"    ║    ",
-				"    ║    ",
-			}
-		}
-	default:
-		if treeHeight <= 5 {
-			shape = []string{
-				" ◊◊◊ ",
-				"◊◊◊◊◊",
-				"◊◊◊◊◊",
-				" ◊◊◊ ",
-				"  ║  ",
-			}
-		} else {
-			shape = []string{
-				"   ◊◊◊   ",
-				"  ◊◊◊◊◊  ",
-				" ◊◊◊◊◊◊◊ ",
-				"◊◊◊◊◊◊◊◊◊",
-				" ◊◊◊◊◊◊◊ ",
-				"   ◊◊◊   ",
-				"    ║    ",
+				"   &&&   ",
+				"  &&&&&  ",
+				" &&&&&&& ",
+				"&&&&&&&&&",
+				" &&&&&&& ",
+				"  &&&&&  ",
+				"   &&&   ",
+				"    |    ",
+				"    |    ",
 			}
 		}
 	}
